@@ -1,0 +1,31 @@
+resource "aws_iam_user" "tho861998" {
+    name = "tho861998"
+}
+
+resource "aws_iam_user_policy" "tho861998" {
+  name = "test"
+  user = aws_iam_user.tho861998.name
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "s3:*",
+        ]
+        Effect   = "Allow",
+        Resource = [
+          "arn:aws:s3:::*",
+        ]
+      },
+    ]
+  })
+}
+
+resource "aws_iam_access_key" "tho" {
+  user = aws_iam_user.tho861998.name
+}
+
+output "aws_iam_smtp_password_v4" {
+  value = aws_iam_access_key.tho.ses_smtp_password_v4
+  sensitive = true
+}
