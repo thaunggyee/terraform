@@ -1,0 +1,91 @@
+resource "aws_key_pair" "deployer" {
+  key_name   = "terraform"
+  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACbQDCm3SbnHYibUWI5O4zHP/SP7aCqgA+Am3KokzwHP6teDPTxfvn0u1HA68zc4YfmCiZvLq9GO833zLz+4p1XVkhoDf19pZL9277yiTVf7cSizQ0pPT3xJ5tLdyBjpBVX55GLGLlmvlNUwsvmbbu8JcM0mZ6nKAuDNz66aBoeywurz+0zTJ/wS3lGG2CwtHx89LSeshRySqbsy7SbDwSUq3ygfzGGWlcnc+0a8+TDv6arXEHqcRAGS/NUP0uMZlINl6fLnDls/+bUfAvObyc8GQ7mNibf9o8ftsaqkUKh9guG+I2PuIkEo/pdtJsAgYX6qaYZnl1uzrB51bRcSesYB3fdT6ceMfh4c/FAQoofBSYMtbEhDg1N2SC8txILANwSi93052R4/bUfn07aL5psA77dhH7rTv7o8mNqtqf+o2CPx3mZI5ZY8y3kB/Mcgs9swYPZjbOnGFFQyIRTlbAF+hlvNsYnLEDDNRkfglibqt/DWGDbOB8OwT+PGX2RVNY49H3pR67dcWDx/L6etdmhJ0fevTlzzrZp+08Z85GB7XLNPip024L+Y+ikJY9lPPI4w+9FzvbwNdc1wSHMRlvvPYlmDNBpx0UTD0yOf9wXSiJ52fiKMLyMzC6y95v5nSqDIzknUU8mDgqV5SC6TLIyWK3Lqzzj6QGUKVY0lfxG7BvD65ZLeC/hctlZeJyIYi+BYKLAuOl5Bdizk+8s8B8vq6SIDfoAx27ciG8RukzaXjONPkE15wTQMuZ1QO6f19nKRTdk5vlaKzU8qNNDctqkZXqqZt6fmCeiuWF6aCbl3xCUeCv9P6kb03qp8jDUw== root@thaunghtikeoo"  ##it's your local public key: when you want to create a ec2 instance: select this key pair and type ssh user-name@public_ip , you won't need private key coz private key is already inside ec2 instance and you have public key for this pricate key --> reverse for creating ec2 in UI , public key in ec2 instance and so you download private key to ssh 
+}
+
+resource "aws_vpc" "main" {
+  cidr_block       = "10.0.0.0/16"
+  instance_tenancy = "default"
+  enable_dns_hostnames = "true"
+  tags = {
+    Name = "main"
+  }
+}
+
+resource "aws_internet_gateway" "gw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "main"
+  }
+}
+resource "aws_subnet" "main" {
+   vpc_id = aws_vpc.main.id
+   cidr_block = "10.0.0.0/24"
+   availability_zone = "us-east-1a"
+
+   tags = {
+     Name = "main-sub"
+   }
+}
+
+resource "aws_route_table" "rt" {
+   vpc_id = aws_vpc.main.id
+   route {
+     cidr_block = "0.0.0.0/0"
+     gateway_id = aws_internet_gateway.gw.id
+   }
+   tags = {
+     Name = "public-rt"
+   }
+}
+
+resource "aws_route_table_association" "rta" {
+  subnet_id = aws_subnet.main.id
+  route_table_id = aws_route_table.rt.id
+}
+
+resource "aws_security_group" "sg" {
+  description = "test sg for terraform"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name = "tf-sg"
+  }
+}
+
+resource "aws_instance" "instance" {  ##login to ec2: ssh ubuntu@public_ip : u don't need privatekey : read at the top
+  ami                         = "ami-042e8287309f5df03"   #ubuntu20
+  availability_zone           = "us-east-1a"
+  instance_type               = "t1.micro"
+  associate_public_ip_address = true
+  vpc_security_group_ids      = [aws_security_group.sg.id]
+  subnet_id                   = aws_subnet.main.id    #subnet-id
+  key_name                    = aws_key_pair.deployer.id
+
+  root_block_device {
+    delete_on_termination = true
+    encrypted             = false
+    volume_size           = "50"
+    volume_type           = "gp2"
+  }
+
+  tags = {
+    Name = "terraform"
+  }
+}
