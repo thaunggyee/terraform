@@ -1,0 +1,17 @@
+#create a bucket
+resource "aws_s3_bucket" "bucket" {
+  bucket = "tho-test-demo"
+  acl = "private"
+ 
+  tags = {
+    Name = "my bucket"
+  }
+}
+
+#upload an object
+resource "aws_s3_bucket_object" "object" {
+  bucket = aws_s3_bucket.bucket.id
+  key = "setup.txt"
+  source = "/home/thaunghtikeoo/setup.txt"
+  acl = "public-read"
+}
